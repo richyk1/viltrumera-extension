@@ -1,14 +1,23 @@
 'use strict';
 
+importScripts('./config.js');
+
 // ── Constants ─────────────────────────────────────────────────────────────
 
-const WARERA_ORIGIN      = 'https://app.warera.io';
-const BACKEND_URL        = 'https://api.viltrumera.app';
-const CONNECT_URL        = `${BACKEND_URL}/api/auth/connect`;
-const COOKIE_NAME        = 'jwt';
-const OFFER_ID_RE        = /^[a-f0-9]{24}$/;
-const API_BASE           = 'https://api3.warera.io';
-const API4_BASE          = 'https://api4.warera.io';
+const WARERA_ORIGIN = 'https://app.warera.io';
+const OFFER_ID_RE   = /^[a-f0-9]{24}$/;
+const API_BASE      = 'https://api3.warera.io';
+const API4_BASE     = 'https://api4.warera.io';
+
+// ── Config (dev vs prod) ──────────────────────────────────────────────────
+
+let _config = null;
+
+async function cfg() {
+  if (!_config) _config = await getConfig();
+  return _config;
+}
+const COOKIE_NAME = 'jwt';
 
 // ── JWT helpers ────────────────────────────────────────────────────────────
 
@@ -80,6 +89,7 @@ function buildEquippedItems(equipment, items) {
 // ── IDENTIFY handler ──────────────────────────────────────────────────────
 
 async function handleIdentify() {
+  const { BACKEND_URL } = await cfg();
   const jwt = await getCookie('jwt');
   if (!jwt) {
     return { userId: null, personalized: false };
@@ -446,6 +456,8 @@ async function handleFetchInventory() {
 const RETRY_DELAYS_MS = [2_000, 5_000, 15_000];
 
 async function connect(jwt, attempt = 0) {
+  const { BACKEND_URL } = await cfg();
+  const CONNECT_URL = `${BACKEND_URL}/api/auth/connect`;
   const payload = decodeJwtPayload(jwt);
   const userId  = payload?.data?._id ?? null;
 

@@ -1,9 +1,16 @@
 'use strict';
 
-const BACKEND_URL    = 'https://api.viltrumera.app';
-const FRONTEND_URL   = 'https://viltrumera.app';
-const REFRESH_MS     = 5_000;
-const FETCH_TIMEOUT  = 3_000;
+const REFRESH_MS    = 5_000;
+const FETCH_TIMEOUT = 3_000;
+
+// ── Config (dev vs prod) ──────────────────────────────────────────────────
+
+let _config = null;
+
+async function cfg() {
+  if (!_config) _config = await getConfig();
+  return _config;
+}
 
 const RECORDER_STATES = new Set([
   'waiting_for_jwt', 'discovering', 'connecting',
@@ -24,6 +31,7 @@ const btnDashboard  = document.getElementById('btn-dashboard');
 
 async function fetchStatus() {
   try {
+    const { BACKEND_URL } = await cfg();
     const resp = await fetch(`${BACKEND_URL}/api/status`, {
       signal: AbortSignal.timeout(FETCH_TIMEOUT),
     });
@@ -36,6 +44,7 @@ async function fetchStatus() {
 
 async function fetchIdentity() {
   try {
+    const { BACKEND_URL } = await cfg();
     const resp = await fetch(`${BACKEND_URL}/api/auth/identity`, {
       signal: AbortSignal.timeout(FETCH_TIMEOUT),
     });
@@ -221,7 +230,8 @@ btnSync.addEventListener('click', async () => {
   }
 });
 
-btnDashboard.addEventListener('click', () => {
+btnDashboard.addEventListener('click', async () => {
+  const { FRONTEND_URL } = await cfg();
   chrome.tabs.create({ url: FRONTEND_URL });
 });
 

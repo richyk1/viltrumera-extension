@@ -3,12 +3,14 @@
   "name": "Viltrumera",
   "version": "0.1.0",
   "description": "Silent bridge — forwards WarEra session JWT to the local backend",
-  "permissions": ["cookies", "storage", "tabs", "alarms"],
+  "permissions": ["cookies", "storage", "tabs", "alarms", "management"],
   "host_permissions": [
     "https://*.warera.io/*",
     "https://warera.io/*",
     "https://api.viltrumera.app/*",
-    "https://viltrumera.app/*"
+    "https://viltrumera.app/*",
+    "http://localhost:3000/*",
+    "http://localhost:5173/*"
   ],
   "background": {
     "service_worker": "background.js"
