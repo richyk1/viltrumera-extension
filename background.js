@@ -451,29 +451,36 @@ async function handleFetchInventory() {
   }
 }
 
-// ── JWT sync to backend ───────────────────────────────────────────────────
+// ── Identity sync to backend (username only — JWT is never sent) ──────────
 
 const RETRY_DELAYS_MS = [2_000, 5_000, 15_000];
 
 async function connect(jwt, attempt = 0) {
   const { BACKEND_URL } = await cfg();
-  const CONNECT_URL = `${BACKEND_URL}/api/auth/connect`;
-  const payload = decodeJwtPayload(jwt);
-  const userId  = payload?.data?._id ?? null;
+  const IDENTIFY_URL = `${BACKEND_URL}/api/auth/identify`;
+  const payload  = decodeJwtPayload(jwt);
+  const userId   = payload?.data?._id ?? payload?.id ?? payload?.userId ?? payload?.sub ?? null;
+  const username = payload?.data?.username ?? payload?.username ?? null;
+
+  // Always update local storage with what we know from the JWT immediately,
+  // regardless of whether the backend call succeeds.
+  await chrome.storage.local.set({ userId, connected: true, lastSync: Date.now() });
+
+  // Notify the backend of who the user is so it can personalize bounty data.
+  // We send only the username (a public game handle), never the JWT credential.
+  const body = username ? { username } : { userId };
 
   try {
-    const resp = await fetch(CONNECT_URL, {
+    const resp = await fetch(IDENTIFY_URL, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ jwt }),
+      body:    JSON.stringify(body),
     });
 
     if (resp.ok) {
-      await chrome.storage.local.set({ userId, connected: true, lastSync: Date.now() });
-      console.debug('[Viltrumera] connected, user:', userId);
+      console.debug('[Viltrumera] identified, user:', username ?? userId);
     } else {
-      console.warn('[Viltrumera] connect rejected:', resp.status);
-      await chrome.storage.local.set({ connected: false });
+      console.warn('[Viltrumera] identify rejected:', resp.status);
     }
   } catch (err) {
     if (attempt < RETRY_DELAYS_MS.length) {
@@ -482,7 +489,6 @@ async function connect(jwt, attempt = 0) {
       setTimeout(() => connect(jwt, attempt + 1), delay);
     } else {
       console.debug('[Viltrumera] backend unreachable after retries, giving up:', err.message);
-      await chrome.storage.local.set({ connected: false });
     }
   }
 }
@@ -532,7 +538,18 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   if (message.type === 'SYNC_NOW') {
-    syncFromCookie().then(() => sendResponse({ ok: true }));
+    syncFromCookie().then(async () => {
+      // Notify any open viltrumera.app tabs that the extension is ready/synced.
+      try {
+        const tabs = await chrome.tabs.query({ url: 'https://viltrumera.app/*' });
+        for (const tab of tabs) {
+          chrome.tabs.sendMessage(tab.id, { type: 'EXTENSION_SYNCED' }).catch(() => {});
+        }
+      } catch (err) {
+        console.debug('[Viltrumera] could not notify tabs:', err.message);
+      }
+      sendResponse({ ok: true });
+    });
     return true;
   }
 

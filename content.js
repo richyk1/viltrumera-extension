@@ -1,4 +1,5 @@
 // Wake the background service worker, confirm readiness, then identify the user.
+// Identity relayed to the page contains only public info (userId, username) — never the JWT.
 async function startup() {
   try {
     await chrome.runtime.sendMessage({ type: "PING" });
@@ -19,6 +20,21 @@ async function startup() {
     window.postMessage({ source: "viltrumera-ext", type: "IDENTIFIED", userId: null, personalized: false }, "*");
   }
 }
+
+// Re-identify and notify the page when the background syncs (e.g. Sync Now button pressed).
+chrome.runtime.onMessage.addListener((message) => {
+  if (message.type === "EXTENSION_SYNCED") {
+    window.postMessage({ source: "viltrumera-ext", type: "EXTENSION_READY" }, "*");
+    // Re-fetch identity so the page gets updated user info after sync.
+    chrome.runtime.sendMessage({ type: "IDENTIFY" })
+      .then((identity) => {
+        window.postMessage({ source: "viltrumera-ext", type: "IDENTIFIED", ...identity }, "*");
+      })
+      .catch((err) => {
+        console.warn("[Viltrumera] re-identify after sync failed:", err.message);
+      });
+  }
+});
 
 /* istanbul ignore next */
 if (typeof module !== "undefined") {
