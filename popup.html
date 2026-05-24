@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Viltrumera</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header class="header">
+    <span class="wordmark">Viltrumera</span>
+    <div class="server-status">
+      <span class="dot" id="server-dot"></span>
+      <span class="server-label" id="server-label">Checking…</span>
+    </div>
+  </header>
+
+  <section class="card" id="player-card">
+    <div id="player-content"></div>
+  </section>
+
+  <section class="card">
+    <div class="card-title">Subsystems</div>
+    <div id="subsystem-list"></div>
+  </section>
+
+  <section class="card">
+    <div class="card-title">Session</div>
+    <div id="session-details"></div>
+  </section>
+
+  <div class="actions">
+    <button class="btn btn-ghost" id="btn-sync">Sync Now</button>
+    <button class="btn btn-primary" id="btn-dashboard">Open Dashboard</button>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

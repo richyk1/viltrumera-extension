@@ -1,0 +1,240 @@
+:root {
+  --bg:           #0f0f1a;
+  --bg-card:      #141422;
+  --border:       #1e1e32;
+  --text:         #d0d0e8;
+  --text-muted:   #5a5a7a;
+  --text-dim:     #8888aa;
+  --accent:       #a78bfa;
+  --green:        #34d399;
+  --yellow:       #fbbf24;
+  --red:          #f87171;
+  --grey:         #4b5563;
+  --orange:       #fb923c;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  width: 320px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 13px;
+  user-select: none;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.wordmark {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.server-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.server-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Dots ────────────────────────────────────────────────────────────────── */
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--grey);
+  flex-shrink: 0;
+  transition: background 0.25s;
+}
+
+.dot.green  { background: var(--green);  box-shadow: 0 0 0 0 rgba(52,211,153,.5); animation: pulse-green 2.4s ease-out infinite; }
+.dot.yellow { background: var(--yellow); }
+.dot.red    { background: var(--red);    }
+.dot.grey   { background: var(--grey);   }
+.dot.orange { background: var(--orange); }
+
+@keyframes pulse-green {
+  0%  { box-shadow: 0 0 0 0   rgba(52, 211, 153, 0.45); }
+  60% { box-shadow: 0 0 0 6px rgba(52, 211, 153, 0);    }
+  100%{ box-shadow: 0 0 0 0   rgba(52, 211, 153, 0);    }
+}
+
+/* ── Cards ───────────────────────────────────────────────────────────────── */
+
+.card {
+  margin: 10px 12px 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.card-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+/* ── Player card ─────────────────────────────────────────────────────────── */
+
+.player-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.player-meta {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+
+.player-prompt {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+.player-prompt a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+/* ── Subsystem rows ──────────────────────────────────────────────────────── */
+
+.subsystem-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 0;
+  border-top: 1px solid var(--border);
+}
+
+.subsystem-row:first-child { border-top: none; }
+
+.subsystem-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.subsystem-name {
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.subsystem-right {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  margin-left: 8px;
+}
+
+/* ── Session KV table ────────────────────────────────────────────────────── */
+
+.kv-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 3px 0;
+  border-top: 1px solid var(--border);
+}
+
+.kv-row:first-child { border-top: none; }
+
+.kv-key {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.kv-val {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  font-family: "SF Mono", "Fira Code", monospace;
+  max-width: 180px;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.kv-val.yes { color: var(--green); font-family: inherit; }
+.kv-val.no  { color: var(--red);   font-family: inherit; }
+
+/* ── Actions ─────────────────────────────────────────────────────────────── */
+
+.actions {
+  display: flex;
+  gap: 8px;
+  padding: 12px 12px 14px;
+}
+
+.btn {
+  flex: 1;
+  padding: 8px 0;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: opacity 0.15s, background 0.15s;
+}
+
+.btn:active { opacity: 0.75; }
+
+.btn-primary {
+  background: var(--accent);
+  color: #0f0f1a;
+  border-color: var(--accent);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-dim);
+  border-color: var(--border);
+}
+
+.btn-ghost:hover { border-color: var(--text-muted); color: var(--text); }
+
+/* ── Spinner ─────────────────────────────────────────────────────────────── */
+
+.spinner {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: middle;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
