@@ -9,15 +9,30 @@ permissions:
 
 jobs:
   release:
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Read version from manifest
+      - name: Bump patch version
         id: version
         run: |
-          VERSION=$(jq -r '.version' manifest.json)
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          OLD=$(jq -r '.version' manifest.json)
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$OLD"
+          NEW="${MAJOR}.${MINOR}.$((PATCH + 1))"
+          jq --arg v "$NEW" '.version = $v' manifest.json > manifest.tmp && mv manifest.tmp manifest.json
+          echo "version=$NEW" >> "$GITHUB_OUTPUT"
+          echo "Bumped $OLD → $NEW"
+
+      - name: Commit version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add manifest.json
+          git commit -m "chore: bump version to v${{ steps.version.outputs.version }} [skip ci]"
+          git push
 
       - name: Package extension
         run: |
@@ -34,7 +49,7 @@ jobs:
 
       - name: Create release
         run: |
-          gh release create latest \
+          gh release create "v${{ steps.version.outputs.version }}" \
             dist/viltrumera-extension-v${{ steps.version.outputs.version }}.zip \
             --title "Viltrumera Extension v${{ steps.version.outputs.version }}" \
             --notes "Download the zip, extract it, then load it in Chrome:
