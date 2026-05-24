@@ -17,7 +17,10 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://viltrumera.app/*"],
+      "matches": [
+        "https://viltrumera.app/*",
+        "http://localhost:5173/*"
+      ],
       "js": ["content.js"],
       "run_at": "document_idle"
     }
