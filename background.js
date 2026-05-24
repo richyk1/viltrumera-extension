@@ -3,7 +3,7 @@
 // ── Constants ─────────────────────────────────────────────────────────────
 
 const WARERA_ORIGIN      = 'https://app.warera.io';
-const BACKEND_URL        = 'http://localhost:3000';
+const BACKEND_URL        = 'https://api.viltrumera.app';
 const CONNECT_URL        = `${BACKEND_URL}/api/auth/connect`;
 const COOKIE_NAME        = 'jwt';
 const OFFER_ID_RE        = /^[a-f0-9]{24}$/;

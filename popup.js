@@ -1,7 +1,7 @@
 'use strict';
 
-const BACKEND_URL    = 'http://localhost:3000';
-const FRONTEND_URL   = 'http://localhost:5173';
+const BACKEND_URL    = 'https://api.viltrumera.app';
+const FRONTEND_URL   = 'https://viltrumera.app';
 const REFRESH_MS     = 5_000;
 const FETCH_TIMEOUT  = 3_000;
 
