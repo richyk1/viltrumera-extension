@@ -1,0 +1,47 @@
+name: Release Extension
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read version from manifest
+        id: version
+        run: |
+          VERSION=$(jq -r '.version' manifest.json)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Package extension
+        run: |
+          mkdir -p dist
+          zip -r dist/viltrumera-extension-v${{ steps.version.outputs.version }}.zip \
+            manifest.json background.js content.js config.js \
+            popup.html popup.css popup.js \
+            icons/
+
+      - name: Delete existing latest release
+        run: gh release delete latest --yes 2>/dev/null || true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create release
+        run: |
+          gh release create latest \
+            dist/viltrumera-extension-v${{ steps.version.outputs.version }}.zip \
+            --title "Viltrumera Extension v${{ steps.version.outputs.version }}" \
+            --notes "Download the zip, extract it, then load it in Chrome:
+
+          1. Go to \`chrome://extensions\`
+          2. Enable **Developer mode** (top right)
+          3. Click **Load unpacked** and select the extracted folder" \
+            --latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
