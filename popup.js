@@ -19,13 +19,14 @@ const RECORDER_STATES = new Set([
 
 // ── DOM refs ──────────────────────────────────────────────────────────────
 
-const serverDot     = document.getElementById('server-dot');
-const serverLabel   = document.getElementById('server-label');
-const playerContent = document.getElementById('player-content');
-const subsystemList = document.getElementById('subsystem-list');
-const sessionDetail = document.getElementById('session-details');
-const btnSync       = document.getElementById('btn-sync');
-const btnDashboard  = document.getElementById('btn-dashboard');
+const serverDot      = document.getElementById('server-dot');
+const serverLabel    = document.getElementById('server-label');
+const playerContent  = document.getElementById('player-content');
+const subsystemList  = document.getElementById('subsystem-list');
+const sessionDetail  = document.getElementById('session-details');
+const btnSync        = document.getElementById('btn-sync');
+const btnDashboard   = document.getElementById('btn-dashboard');
+const activeServerEl = document.getElementById('active-server');
 
 // ── Fetch helpers ─────────────────────────────────────────────────────────
 
@@ -201,19 +202,33 @@ function esc(s) {
     .replace(/"/g, '&quot;');
 }
 
+// ── Active server label ───────────────────────────────────────────────────
+
+function renderActiveServer(config) {
+  if (!activeServerEl || !config) return;
+  try {
+    const host = new URL(config.BACKEND_URL).host;
+    activeServerEl.textContent = `Connected to ${host}`;
+  } catch {
+    activeServerEl.textContent = '';
+  }
+}
+
 // ── Main refresh cycle ────────────────────────────────────────────────────
 
 async function refresh() {
-  const [storage, status, player] = await Promise.all([
+  const [storage, status, player, config] = await Promise.all([
     chrome.storage.local.get(['userId', 'connected', 'lastSync']),
     fetchStatus(),
     fetchIdentity(),
+    cfg(),
   ]);
 
   renderServerStatus(status !== null);
   renderPlayer(storage, player);
   renderSubsystems(status);
   renderSession(storage, status);
+  renderActiveServer(config);
 }
 
 // ── Buttons ───────────────────────────────────────────────────────────────

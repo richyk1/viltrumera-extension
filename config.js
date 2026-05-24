@@ -1,7 +1,7 @@
 'use strict';
 
-const ENV = {
-  dev: {
+const ENDPOINTS = {
+  local: {
     BACKEND_URL:  'http://localhost:3000',
     FRONTEND_URL: 'http://localhost:5173',
   },
@@ -11,8 +11,23 @@ const ENV = {
   },
 };
 
+let _cached = null;
+
 async function getConfig() {
-  const self  = await chrome.management.getSelf();
-  const isDev = self.installType === 'development';
-  return isDev ? ENV.dev : ENV.prod;
+  if (_cached) return _cached;
+  try {
+    const res = await fetch(`${ENDPOINTS.local.BACKEND_URL}/api/health`, {
+      signal: AbortSignal.timeout(500),
+    });
+    if (res.ok) {
+      _cached = ENDPOINTS.local;
+      return _cached;
+    }
+  } catch {}
+  _cached = ENDPOINTS.prod;
+  return _cached;
+}
+
+function getCachedConfig() {
+  return _cached;
 }
