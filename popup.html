@@ -7,33 +7,24 @@
 </head>
 <body>
   <header class="header">
+    <svg class="logo" viewBox="560 140 800 800" width="20" height="20">
+      <path d="M0,0 L48,0 L86,4 L107,8 L132,14 L162,24 L182,32 L202,41 L224,53 L242,64 L258,75 L271,85 L282,94 L292,103 L300,110 L320,130 L327,138 L341,155 L354,173 L365,190 L376,209 L385,226 L396,251 L405,276 L411,296 L417,323 L422,354 L424,385 L424,422 L422,446 L417,476 L414,492 L407,518 L395,551 L387,569 L379,585 L370,602 L358,621 L346,638 L335,652 L324,665 L312,678 L294,696 L286,703 L269,717 L262,721 L262,293 L192,293 L192,763 L180,769 L159,777 L142,783 L112,791 L89,795 L86,796 L56,799 L39,800 L0,800 L-37,796 L-64,791 L-78,787 L-94,783 L-120,774 L-145,763 L-161,755 L-178,746 L-197,734 L-214,722 L-228,711 L-241,700 L-254,688 L-272,670 L-279,662 L-293,645 L-306,627 L-317,610 L-329,589 L-337,574 L-347,551 L-360,515 L-367,488 L-371,465 L-373,455 L-376,425 L-376,386 L-375,364 L-371,333 L-364,300 L-357,276 L-351,259 L-340,233 L-332,216 L-322,198 L-310,179 L-298,162 L-287,148 L-276,135 L-264,122 L-246,104 L-238,97 L-221,83 L-214,79 L-214,507 L-144,507 L-144,37 L-132,31 L-109,22 L-94,17 L-71,11 L-54,7 L-31,3 Z M-11,100 L-11,700 L59,700 L59,100 Z" transform="translate(936,140)" fill="#A5121B"/>
+    </svg>
     <span class="wordmark">Viltrumera</span>
-    <div class="server-status">
-      <span class="dot" id="server-dot"></span>
-      <span class="server-label" id="server-label">Checking…</span>
-    </div>
   </header>
 
-  <section class="card" id="player-card">
-    <div id="player-content"></div>
-  </section>
-
-  <section class="card">
-    <div class="card-title">Subsystems</div>
-    <div id="subsystem-list"></div>
-  </section>
-
-  <section class="card">
-    <div class="card-title">Session</div>
-    <div id="session-details"></div>
-  </section>
+  <main>
+    <div class="identity-card" id="identity-card">
+      <!-- Filled by JS: either user info or "log in" prompt -->
+    </div>
+  </main>
 
   <div class="actions">
-    <button class="btn btn-ghost" id="btn-sync">Sync Now</button>
+    <button class="btn btn-secondary" id="btn-sync">Sync</button>
     <button class="btn btn-primary" id="btn-dashboard">Open Dashboard</button>
   </div>
 
-  <div id="active-server" style="text-align:center;font-size:10px;color:var(--text-muted);padding:4px 0 6px;opacity:0.7"></div>
+  <footer class="footer" id="footer-server"></footer>
 
   <script src="config.js"></script>
   <script src="popup.js"></script>
