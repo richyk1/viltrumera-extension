@@ -420,6 +420,57 @@ async function handleEquipItems(equipment) {
   }
 }
 
+// ── SCRAP_ITEM handler ──────────────────────────────────────────────────
+
+async function handleScrapItem(itemId) {
+  if (!OFFER_ID_RE.test(itemId)) {
+    return { success: false, error: 'Invalid item ID', code: 'UNKNOWN' };
+  }
+
+  const game = await buildGameHeaders();
+  if (!game) {
+    console.warn('[Viltrumera] missing cookies for scrap');
+    return { success: false, error: 'Log into app.warera.io first', code: 'NO_COOKIES' };
+  }
+  const { headers } = game;
+
+  console.log('[Viltrumera] scraping item:', itemId);
+
+  try {
+    const resp = await fetch(`${API_BASE}/trpc/inventory.scrapItem?batch=1`, {
+      method:  'POST',
+      headers,
+      body:    JSON.stringify({ '0': { itemId } }),
+    });
+
+    if (resp.status === 403) {
+      console.warn('[Viltrumera] Cloudflare 403');
+      return { success: false, error: 'Visit app.warera.io to refresh your session', code: 'CF_BLOCKED' };
+    }
+
+    const data   = await resp.json();
+    const result = Array.isArray(data) ? data[0] : data;
+    const scrap  = result?.result?.data ?? result;
+
+    if (result?.error) {
+      const msg = result.error?.json?.message ?? result.error?.message ?? 'Scrap failed';
+      console.warn('[Viltrumera] scrap API error:', msg);
+      return { success: false, error: msg, code: 'API_ERROR' };
+    }
+
+    console.log('[Viltrumera] scrap success:', scrap);
+    return {
+      success:        true,
+      scrapsReceived: scrap.scrapsReceived ?? 0,
+      itemCode:       scrap.itemCode ?? null,
+      rarity:         scrap.rarity ?? null,
+    };
+  } catch (err) {
+    console.error('[Viltrumera] scrap fetch error:', err);
+    return { success: false, error: err.message || 'Scrap request failed', code: 'UNKNOWN' };
+  }
+}
+
 // ── FETCH_INVENTORY handler ───────────────────────────────────────────────
 
 async function handleFetchInventory() {
@@ -565,6 +616,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   if (message.type === 'EQUIP_ITEMS') {
     handleEquipItems(message.equipment).then(sendResponse);
+    return true;
+  }
+
+  if (message.type === 'SCRAP_ITEM') {
+    handleScrapItem(message.itemId).then(sendResponse);
     return true;
   }
 
