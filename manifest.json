@@ -1,9 +1,14 @@
 {
   "manifest_version": 3,
   "name": "Viltrumera",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Silent bridge — personalizes your Viltrumera experience using your WarEra username",
-  "permissions": ["cookies", "storage", "tabs", "alarms"],
+  "permissions": [
+    "cookies",
+    "storage",
+    "tabs",
+    "alarms"
+  ],
   "host_permissions": [
     "https://*.warera.io/*",
     "https://warera.io/*",
@@ -21,7 +26,9 @@
         "https://viltrumera.app/*",
         "http://localhost:5173/*"
       ],
-      "js": ["content.js"],
+      "js": [
+        "content.js"
+      ],
       "run_at": "document_idle"
     }
   ],
