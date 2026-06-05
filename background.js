@@ -123,9 +123,10 @@ async function handleIdentify() {
     };
 
     try {
-      const [getMeResp, inventoryResp] = await Promise.all([
+      const [getMeResp, inventoryResp, myWorkerResp] = await Promise.all([
         api4Post(jwt, 'user.getMe', {}),
         api4Post(jwt, 'inventory.getById', {}),
+        api4Post(jwt, 'worker.getMyWorker', {}),
       ]);
 
       let equipment = null;
@@ -143,6 +144,26 @@ async function handleIdentify() {
         if (items) {
           const equippedItems = buildEquippedItems(equipment, items);
           if (Object.keys(equippedItems).length > 0) result.equippedItems = equippedItems;
+        }
+      }
+
+      if (myWorkerResp.ok) {
+        const myWorkerData = await myWorkerResp.json();
+        const workerResult = myWorkerData?.[0]?.result?.data;
+        if (workerResult) {
+          // WorkerEntry fields: company, employer, wage, fidelity, joinedAt
+          // (validated against game_api::types::WorkerEntry)
+          const { company, employer, wage, fidelity, joinedAt } = workerResult;
+          if (!company || !employer || wage === undefined) {
+            console.error('[Viltrumera] worker.getMyWorker: unexpected shape', JSON.stringify(workerResult));
+          } else {
+            const myWorker = { companyId: company, employerId: employer, wage, fidelity, joinedAt };
+            await chrome.storage.local.set({ myWorker });
+            result.myWorker = myWorker;
+          }
+        } else {
+          await chrome.storage.local.remove('myWorker');
+          result.myWorker = null;
         }
       }
     } catch (err) {
@@ -180,6 +201,63 @@ async function buildGameHeaders() {
   if (gr)  headers['x-gr']  = decodeURIComponent(gr);
 
   return { jwt, headers };
+}
+
+// ── GET_MY_WORKER handler ─────────────────────────────────────────────────
+//
+// Returns the cached worker record from chrome.storage.local if available.
+// If the cache is empty (e.g. on first load before IDENTIFY runs), fetches
+// worker.getMyWorker live from the game API and caches the result.
+
+async function handleGetMyWorker() {
+  const { myWorker } = await chrome.storage.local.get('myWorker');
+  if (myWorker !== undefined) {
+    return { success: true, data: myWorker };
+  }
+
+  // Cache miss — fetch live.
+  const jwt = await getCookie('jwt');
+  if (!jwt) {
+    return { success: false, error: 'Log into app.warera.io first', code: 'NO_COOKIES' };
+  }
+
+  try {
+    const resp = await api4Post(jwt, 'worker.getMyWorker', {});
+
+    if (!resp.ok) {
+      console.warn('[Viltrumera] worker.getMyWorker fetch failed:', resp.status);
+      return { success: false, error: `Game API returned ${resp.status}`, code: 'API_ERROR' };
+    }
+
+    const raw  = await resp.json();
+    const item = Array.isArray(raw) ? raw[0] : raw;
+
+    if (item?.error) {
+      const msg = item.error?.json?.message ?? item.error?.message ?? 'getMyWorker failed';
+      console.warn('[Viltrumera] worker.getMyWorker error:', msg);
+      return { success: false, error: msg, code: 'API_ERROR' };
+    }
+
+    const workerResult = item?.result?.data;
+
+    if (!workerResult) {
+      await chrome.storage.local.remove('myWorker');
+      return { success: true, data: null };
+    }
+
+    const { company, employer, wage, fidelity, joinedAt } = workerResult;
+    if (!company || !employer || wage === undefined) {
+      console.error('[Viltrumera] worker.getMyWorker: unexpected response shape', JSON.stringify(workerResult));
+      return { success: false, error: `Unexpected worker data shape: missing company=${company}, employer=${employer}, wage=${wage}`, code: 'PARSE_ERROR' };
+    }
+
+    const myWorkerData = { companyId: company, employerId: employer, wage, fidelity, joinedAt };
+    await chrome.storage.local.set({ myWorker: myWorkerData });
+    return { success: true, data: myWorkerData };
+  } catch (err) {
+    console.error('[Viltrumera] handleGetMyWorker error:', err);
+    return { success: false, error: err.message || 'Request failed', code: 'UNKNOWN' };
+  }
 }
 
 // ── FETCH_MU_ROSTER handler ───────────────────────────────────────────────
@@ -631,6 +709,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   if (message.type === 'FETCH_MU_ROSTER') {
     handleFetchMuRoster(message.muId).then(sendResponse);
+    return true;
+  }
+
+  if (message.type === 'GET_MY_WORKER') {
+    handleGetMyWorker().then(sendResponse);
     return true;
   }
 

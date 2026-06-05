@@ -47,6 +47,12 @@ body {
   color: var(--text-2);
 }
 
+.version {
+  font-size: 10px;
+  color: var(--muted);
+  margin-left: 6px;
+}
+
 /* ── Identity card ───────────────────────────────────────────────────────── */
 
 main {

@@ -120,4 +120,9 @@ btnDashboard.addEventListener('click', async () => {
 
 // ── Init ──────────────────────────────────────────────────────────────────
 
+const extVersionEl = document.getElementById('ext-version');
+if (extVersionEl) {
+  extVersionEl.textContent = `v${chrome.runtime.getManifest().version}`;
+}
+
 refresh();
