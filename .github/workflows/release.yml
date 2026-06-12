@@ -16,13 +16,22 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
       - name: Bump patch version
         id: version
         run: |
-          OLD=$(jq -r '.version' manifest.json)
+          OLD=$(jq -r '.version' package.json)
           IFS='.' read -r MAJOR MINOR PATCH <<< "$OLD"
           NEW="${MAJOR}.${MINOR}.$((PATCH + 1))"
-          jq --arg v "$NEW" '.version = $v' manifest.json > manifest.tmp && mv manifest.tmp manifest.json
+          jq --arg v "$NEW" '.version = $v' package.json > package.tmp && mv package.tmp package.json
           echo "version=$NEW" >> "$GITHUB_OUTPUT"
           echo "Bumped $OLD → $NEW"
 
@@ -30,17 +39,18 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add manifest.json
+          git add package.json
           git commit -m "chore: bump version to v${{ steps.version.outputs.version }} [skip ci]"
           git push
 
-      - name: Package extension
-        run: |
-          mkdir -p dist
-          zip -r dist/viltrumera-extension-v${{ steps.version.outputs.version }}.zip \
-            manifest.json background.js content.js config.js \
-            popup.html popup.css popup.js \
-            icons/
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build and zip (Chrome + Edge)
+        run: pnpm zip
+
+      - name: Build and zip (Firefox)
+        run: pnpm zip:firefox
 
       - name: Delete existing latest release
         run: gh release delete latest --yes 2>/dev/null || true
@@ -50,13 +60,22 @@ jobs:
       - name: Create release
         run: |
           gh release create "v${{ steps.version.outputs.version }}" \
-            dist/viltrumera-extension-v${{ steps.version.outputs.version }}.zip \
+            .output/viltrumera-extension-${{ steps.version.outputs.version }}-chrome.zip \
+            .output/viltrumera-extension-${{ steps.version.outputs.version }}-firefox.zip \
+            .output/viltrumera-extension-${{ steps.version.outputs.version }}-sources.zip \
             --title "Viltrumera Extension v${{ steps.version.outputs.version }}" \
-            --notes "Download the zip, extract it, then load it in Chrome:
+            --notes "One codebase, built per browser with WXT.
 
-          1. Go to \`chrome://extensions\`
-          2. Enable **Developer mode** (top right)
-          3. Click **Load unpacked** and select the extracted folder" \
+          ## Chrome / Edge / Brave (\`-chrome.zip\`)
+          1. Download and extract the chrome zip
+          2. Go to \`chrome://extensions\`, enable **Developer mode**
+          3. Click **Load unpacked** and select the extracted folder
+
+          ## Firefox (\`-firefox.zip\`)
+          Temporary install (resets on restart): \`about:debugging\` → **This Firefox** → **Load Temporary Add-on** → pick the zip.
+          A permanently-installable signed build (free AMO signing) is planned.
+
+          The \`-sources.zip\` is the unbuilt source for review." \
             --latest
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

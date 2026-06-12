@@ -1,19 +1,17 @@
-'use strict';
-
 const ENDPOINTS = {
   local: {
-    BACKEND_URL:  'http://localhost:3000',
-    FRONTEND_URL: 'http://localhost:5173',
+    BACKEND_URL: "http://localhost:3000",
+    FRONTEND_URL: "http://localhost:5173",
   },
   prod: {
-    BACKEND_URL:  'https://api.viltrumera.app',
-    FRONTEND_URL: 'https://viltrumera.app',
+    BACKEND_URL: "https://api.viltrumera.app",
+    FRONTEND_URL: "https://viltrumera.app",
   },
 };
 
 let _cached = null;
 
-async function getConfig() {
+export async function getConfig() {
   if (_cached) return _cached;
   try {
     const res = await fetch(`${ENDPOINTS.local.BACKEND_URL}/api/health`, {
@@ -23,11 +21,9 @@ async function getConfig() {
       _cached = ENDPOINTS.local;
       return _cached;
     }
-  } catch {}
+  } catch {
+    // local backend not running — fall through to prod
+  }
   _cached = ENDPOINTS.prod;
-  return _cached;
-}
-
-function getCachedConfig() {
   return _cached;
 }

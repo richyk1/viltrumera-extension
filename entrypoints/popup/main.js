@@ -1,4 +1,5 @@
-'use strict';
+import { getConfig } from "@/utils/config";
+import "./style.css";
 
 const FETCH_TIMEOUT = 3_000;
 
@@ -90,7 +91,7 @@ function renderFooter(config) {
 
 async function refresh() {
   const [storage, player, config] = await Promise.all([
-    chrome.storage.local.get(['userId', 'connected', 'lastSync']),
+    browser.storage.local.get(['userId', 'connected', 'lastSync']),
     fetchIdentity(),
     cfg(),
   ]);
@@ -105,7 +106,7 @@ btnSync.addEventListener('click', async () => {
   btnSync.disabled = true;
   btnSync.innerHTML = '<span class="spinner"></span>';
   try {
-    await chrome.runtime.sendMessage({ type: 'SYNC_NOW' });
+    await browser.runtime.sendMessage({ type: 'SYNC_NOW' });
     await refresh();
   } finally {
     btnSync.disabled = false;
@@ -115,14 +116,14 @@ btnSync.addEventListener('click', async () => {
 
 btnDashboard.addEventListener('click', async () => {
   const { FRONTEND_URL } = await cfg();
-  chrome.tabs.create({ url: FRONTEND_URL });
+  browser.tabs.create({ url: FRONTEND_URL });
 });
 
 // ── Init ──────────────────────────────────────────────────────────────────
 
 const extVersionEl = document.getElementById('ext-version');
 if (extVersionEl) {
-  extVersionEl.textContent = `v${chrome.runtime.getManifest().version}`;
+  extVersionEl.textContent = `v${browser.runtime.getManifest().version}`;
 }
 
 refresh();
