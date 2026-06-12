@@ -1,7 +1,7 @@
 {
   "name": "viltrumera-extension",
-  "version": "0.2.1",
-  "description": "Silent bridge \u2014 personalizes your Viltrumera experience using your WarEra username",
+  "version": "0.2.2",
+  "description": "Silent bridge — personalizes your Viltrumera experience using your WarEra username",
   "private": true,
   "type": "module",
   "scripts": {
