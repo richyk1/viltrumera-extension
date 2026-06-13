@@ -464,10 +464,7 @@ export default defineBackground(() => {
 
   // ── SELL_ITEM handler (relist a flipped item) ─────────────────────────────
 
-  async function handleSellItem(itemId, price, quantity) {
-    if (!OFFER_ID_RE.test(itemId)) {
-      return { success: false, error: 'Invalid item ID', code: 'UNKNOWN' };
-    }
+  async function handleSellItem(itemId, price, quantity, itemCode) {
     if (!(price > 0) || !(quantity >= 1)) {
       return { success: false, error: 'Invalid price or quantity', code: 'UNKNOWN' };
     }
@@ -479,13 +476,38 @@ export default defineBackground(() => {
     }
     const { headers } = game;
 
-    console.log('[Viltrumera] listing item:', itemId, 'at', price);
+    // Re-resolve a real, currently-owned item to list. The stored itemId can be
+    // stale or shared across duplicate purchases (the buy-time heuristic isn't
+    // unique for identical items), so prefer it only if still in inventory;
+    // otherwise list any unlisted item of the same code.
+    let resolvedId = OFFER_ID_RE.test(itemId) ? itemId : null;
+    try {
+      const invResp = await fetch(`${API_BASE}/trpc/inventory.getById?batch=1`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ '0': {} }),
+      });
+      const invData = await invResp.json();
+      const inv = Array.isArray(invData) ? invData[0]?.result?.data : invData?.result?.data;
+      const items = [...(inv?.items?.weapons ?? []), ...(inv?.items?.equipments ?? [])];
+      if (!resolvedId || !items.some(i => i._id === resolvedId)) {
+        const match = itemCode ? items.find(i => i.code === itemCode) : null;
+        resolvedId = match?._id ?? null;
+      }
+    } catch (err) {
+      console.warn('[Viltrumera] inventory resolve for sell failed:', err.message);
+    }
+    if (!resolvedId) {
+      return { success: false, error: 'No matching item in your inventory to list', code: 'NO_ITEM' };
+    }
+
+    console.log('[Viltrumera] listing item:', resolvedId, 'at', price);
 
     try {
       const resp = await fetch(`${API_BASE}/trpc/itemOffer.createItemOffer?batch=1`, {
         method:  'POST',
         headers,
-        body:    JSON.stringify({ '0': { itemId, price, quantity } }),
+        body:    JSON.stringify({ '0': { itemId: resolvedId, price, quantity } }),
       });
 
       if (resp.status === 403) {
@@ -506,7 +528,7 @@ export default defineBackground(() => {
 
       // Fallback: the created-offer id is the source of truth for sale
       // detection — if the mutation didn't return it, find the offer in our
-      // own listings by matching the item.
+      // own listings by matching the item we just listed.
       if (!offerId) {
         try {
           const inp = encodeURIComponent(JSON.stringify({ '0': {} }));
@@ -514,7 +536,7 @@ export default defineBackground(() => {
           const myData = await myResp.json();
           const offers = Array.isArray(myData) ? myData[0]?.result?.data : myData?.result?.data;
           if (Array.isArray(offers)) {
-            const match = offers.find(o => o.itemId === itemId || o.item?._id === itemId || o.item === itemId)
+            const match = offers.find(o => o.itemId === resolvedId || o.item?._id === resolvedId || o.item === resolvedId)
               ?? offers.find(o => o.price === price);
             offerId = match?._id ?? match?.id ?? null;
           }
@@ -761,7 +783,7 @@ export default defineBackground(() => {
     }
 
     if (message.type === 'SELL_ITEM') {
-      handleSellItem(message.itemId, message.price, message.quantity ?? 1).then(sendResponse);
+      handleSellItem(message.itemId, message.price, message.quantity ?? 1, message.itemCode).then(sendResponse);
       return true;
     }
 
