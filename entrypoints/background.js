@@ -462,6 +462,75 @@ export default defineBackground(() => {
     }
   }
 
+  // ── SELL_ITEM handler (relist a flipped item) ─────────────────────────────
+
+  async function handleSellItem(itemId, price, quantity) {
+    if (!OFFER_ID_RE.test(itemId)) {
+      return { success: false, error: 'Invalid item ID', code: 'UNKNOWN' };
+    }
+    if (!(price > 0) || !(quantity >= 1)) {
+      return { success: false, error: 'Invalid price or quantity', code: 'UNKNOWN' };
+    }
+
+    const game = await buildGameHeaders();
+    if (!game) {
+      console.warn('[Viltrumera] missing cookies for sell');
+      return { success: false, error: 'Log into app.warera.io first', code: 'NO_COOKIES' };
+    }
+    const { headers } = game;
+
+    console.log('[Viltrumera] listing item:', itemId, 'at', price);
+
+    try {
+      const resp = await fetch(`${API_BASE}/trpc/itemOffer.createItemOffer?batch=1`, {
+        method:  'POST',
+        headers,
+        body:    JSON.stringify({ '0': { itemId, price, quantity } }),
+      });
+
+      if (resp.status === 403) {
+        return { success: false, error: 'Visit app.warera.io to refresh your session', code: 'CF_BLOCKED' };
+      }
+
+      const data   = await resp.json();
+      const result = Array.isArray(data) ? data[0] : data;
+
+      if (result?.error) {
+        const msg = result.error?.json?.message ?? result.error?.message ?? 'Listing failed';
+        console.warn('[Viltrumera] sell API error:', msg);
+        return { success: false, error: msg, code: 'API_ERROR' };
+      }
+
+      const created = result?.result?.data ?? result;
+      let offerId = created?._id ?? created?.id ?? null;
+
+      // Fallback: the created-offer id is the source of truth for sale
+      // detection — if the mutation didn't return it, find the offer in our
+      // own listings by matching the item.
+      if (!offerId) {
+        try {
+          const inp = encodeURIComponent(JSON.stringify({ '0': {} }));
+          const myResp = await fetch(`${API4_BASE}/trpc/itemOffer.getMyItemOffers?batch=1&input=${inp}`, { headers });
+          const myData = await myResp.json();
+          const offers = Array.isArray(myData) ? myData[0]?.result?.data : myData?.result?.data;
+          if (Array.isArray(offers)) {
+            const match = offers.find(o => o.itemId === itemId || o.item?._id === itemId || o.item === itemId)
+              ?? offers.find(o => o.price === price);
+            offerId = match?._id ?? match?.id ?? null;
+          }
+        } catch (err) {
+          console.warn('[Viltrumera] getMyItemOffers fallback failed:', err.message);
+        }
+      }
+
+      console.log('[Viltrumera] listed, offer:', offerId);
+      return { success: true, offerId, data: created };
+    } catch (err) {
+      console.error('[Viltrumera] sell fetch error:', err);
+      return { success: false, error: err.message || 'Listing request failed', code: 'UNKNOWN' };
+    }
+  }
+
   // ── EQUIP_ITEMS handler ───────────────────────────────────────────────────
 
   async function handleEquipItems(equipment) {
@@ -688,6 +757,11 @@ export default defineBackground(() => {
 
     if (message.type === 'BUY_ITEM') {
       handleBuyItem(message.offerId, message.slot, message.itemCode).then(sendResponse);
+      return true;
+    }
+
+    if (message.type === 'SELL_ITEM') {
+      handleSellItem(message.itemId, message.price, message.quantity ?? 1).then(sendResponse);
       return true;
     }
 
