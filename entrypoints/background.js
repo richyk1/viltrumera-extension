@@ -679,14 +679,37 @@ export default defineBackground(() => {
     const { headers } = game;
 
     async function fetchPeriod(timeType) {
-      const resp = await fetch(`${API4_BASE}/trpc/mission.getMyMissions?batch=1`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ '0': { timeType } }),
-      });
-      const data = await resp.json();
-      const err = Array.isArray(data) ? data[0]?.error : data?.error;
-      if (err) throw new Error(err?.json?.message ?? err?.message ?? `${timeType} missions failed`);
+      let resp;
+      try {
+        resp = await fetch(`${API4_BASE}/trpc/mission.getMyMissions?batch=1`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ '0': { timeType } }),
+        });
+      } catch (e) {
+        const err = new Error(`Could not reach the game server for ${timeType} missions: ${e.message}`);
+        err.code = 'NETWORK';
+        throw err;
+      }
+      if (!resp.ok) {
+        const err = new Error(`Game server returned HTTP ${resp.status} for ${timeType} missions`);
+        err.code = 'API_ERROR';
+        throw err;
+      }
+      let data;
+      try {
+        data = await resp.json();
+      } catch {
+        const err = new Error(`Game server sent a non-JSON response for ${timeType} missions (are you logged in?)`);
+        err.code = 'API_ERROR';
+        throw err;
+      }
+      const apiErr = Array.isArray(data) ? data[0]?.error : data?.error;
+      if (apiErr) {
+        const err = new Error(`Fetching ${timeType} missions failed: ${apiErr?.json?.message ?? apiErr?.message ?? 'unknown game API error'}`);
+        err.code = 'API_ERROR';
+        throw err;
+      }
       return (Array.isArray(data) ? data[0]?.result?.data : data?.result?.data) ?? [];
     }
 
@@ -694,7 +717,7 @@ export default defineBackground(() => {
       const [daily, weekly] = await Promise.all([fetchPeriod('daily'), fetchPeriod('weekly')]);
       return { success: true, daily, weekly };
     } catch (e) {
-      return { success: false, error: e.message, code: 'API_ERROR' };
+      return { success: false, error: e.message, code: e.code ?? 'UNKNOWN' };
     }
   }
 
@@ -710,17 +733,30 @@ export default defineBackground(() => {
     const procedure = 'user.buyCheapestFoodAndConsume';
     const input = {};
     try {
-      const resp = await fetch(`${API4_BASE}/trpc/${procedure}?batch=1`, {
-        method: 'POST', headers, body: JSON.stringify({ '0': input }),
-      });
-      const data = await resp.json();
+      let resp;
+      try {
+        resp = await fetch(`${API4_BASE}/trpc/${procedure}?batch=1`, {
+          method: 'POST', headers, body: JSON.stringify({ '0': input }),
+        });
+      } catch (e) {
+        return { success: false, error: `Could not reach the game server to eat food: ${e.message}`, code: 'NETWORK' };
+      }
+      if (!resp.ok) {
+        return { success: false, error: `Game server returned HTTP ${resp.status} when eating food`, code: 'API_ERROR' };
+      }
+      let data;
+      try {
+        data = await resp.json();
+      } catch {
+        return { success: false, error: 'Game server sent a non-JSON response when eating food (are you logged in?)', code: 'API_ERROR' };
+      }
       const err = Array.isArray(data) ? data[0]?.error : data?.error;
       if (err) {
-        return { success: false, error: err?.json?.message ?? err?.message ?? 'Consume failed', code: 'API_ERROR' };
+        return { success: false, error: `Eating food failed: ${err?.json?.message ?? err?.message ?? 'unknown game API error'}`, code: 'API_ERROR' };
       }
       return { success: true };
     } catch (e) {
-      return { success: false, error: e.message, code: 'UNKNOWN' };
+      return { success: false, error: `Eating food failed unexpectedly: ${e.message}`, code: 'UNKNOWN' };
     }
   }
 
