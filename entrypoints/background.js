@@ -670,6 +670,34 @@ export default defineBackground(() => {
     }
   }
 
+  // ── FETCH_MISSIONS handler ────────────────────────────────────────────────
+  async function handleFetchMissions() {
+    const game = await buildGameHeaders();
+    if (!game) {
+      return { success: false, error: 'Log into app.warera.io first', code: 'NO_COOKIES' };
+    }
+    const { headers } = game;
+
+    async function fetchPeriod(timeType) {
+      const resp = await fetch(`${API4_BASE}/trpc/mission.getMyMissions?batch=1`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ '0': { timeType } }),
+      });
+      const data = await resp.json();
+      const err = Array.isArray(data) ? data[0]?.error : data?.error;
+      if (err) throw new Error(err?.json?.message ?? err?.message ?? `${timeType} missions failed`);
+      return (Array.isArray(data) ? data[0]?.result?.data : data?.result?.data) ?? [];
+    }
+
+    try {
+      const [daily, weekly] = await Promise.all([fetchPeriod('daily'), fetchPeriod('weekly')]);
+      return { success: true, daily, weekly };
+    } catch (e) {
+      return { success: false, error: e.message, code: 'API_ERROR' };
+    }
+  }
+
   // ── Identity sync to backend (username only — JWT is never sent) ──────────
 
   const RETRY_DELAYS_MS = [2_000, 5_000, 15_000];
@@ -799,6 +827,11 @@ export default defineBackground(() => {
 
     if (message.type === 'FETCH_INVENTORY') {
       handleFetchInventory().then(sendResponse);
+      return true;
+    }
+
+    if (message.type === 'FETCH_MISSIONS') {
+      handleFetchMissions().then(sendResponse);
       return true;
     }
 
