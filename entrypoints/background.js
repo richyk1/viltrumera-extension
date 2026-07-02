@@ -134,6 +134,7 @@ export default defineBackground(() => {
           const meResult  = getMeData?.[0]?.result?.data;
           const wealth    = meResult?.stats?.wealth;
           if (wealth) result.wealth = wealth;
+          if (meResult?.username) result.username = meResult.username;
           equipment = meResult?.equipment ?? null;
         }
 
