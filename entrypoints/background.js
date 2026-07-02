@@ -698,6 +698,32 @@ export default defineBackground(() => {
     }
   }
 
+  // ── CONSUME_FOOD handler ──────────────────────────────────────────────────
+  async function handleConsumeFood(foodItemCode) {
+    const game = await buildGameHeaders();
+    if (!game) {
+      return { success: false, error: 'Log into app.warera.io first', code: 'NO_COOKIES' };
+    }
+    const { headers } = game;
+    // Procedure + input confirmed in Step 1. If buyCheapestFoodAndConsume: input {}.
+    // If consumeFood: input { itemCode: foodItemCode }.
+    const procedure = 'user.buyCheapestFoodAndConsume';
+    const input = {};
+    try {
+      const resp = await fetch(`${API4_BASE}/trpc/${procedure}?batch=1`, {
+        method: 'POST', headers, body: JSON.stringify({ '0': input }),
+      });
+      const data = await resp.json();
+      const err = Array.isArray(data) ? data[0]?.error : data?.error;
+      if (err) {
+        return { success: false, error: err?.json?.message ?? err?.message ?? 'Consume failed', code: 'API_ERROR' };
+      }
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: e.message, code: 'UNKNOWN' };
+    }
+  }
+
   // ── Identity sync to backend (username only — JWT is never sent) ──────────
 
   const RETRY_DELAYS_MS = [2_000, 5_000, 15_000];
@@ -832,6 +858,11 @@ export default defineBackground(() => {
 
     if (message.type === 'FETCH_MISSIONS') {
       handleFetchMissions().then(sendResponse);
+      return true;
+    }
+
+    if (message.type === 'CONSUME_FOOD') {
+      handleConsumeFood(message.foodItemCode).then(sendResponse);
       return true;
     }
 
