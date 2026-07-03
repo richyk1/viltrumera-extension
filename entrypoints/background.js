@@ -729,10 +729,12 @@ export default defineBackground(() => {
       return { success: false, error: 'Log into app.warera.io first', code: 'NO_COOKIES' };
     }
     const { headers } = game;
-    // Procedure + input confirmed in Step 1. If buyCheapestFoodAndConsume: input {}.
-    // If consumeFood: input { itemCode: foodItemCode }.
-    const procedure = 'user.buyCheapestFoodAndConsume';
-    const input = {};
+    // Eat the named food from inventory via `user.consumeFood { itemCode }`
+    // (itemCode ∈ 'bread' | 'steak' | 'cookedFish' — verified live). This
+    // advances the specific eat mission. If no food code is supplied, fall back
+    // to buying + eating the cheapest food.
+    const procedure = foodItemCode ? 'user.consumeFood' : 'user.buyCheapestFoodAndConsume';
+    const input = foodItemCode ? { itemCode: foodItemCode } : {};
     try {
       let resp;
       try {
