@@ -852,6 +852,26 @@ export default defineBackground(() => {
     await syncFromCookie();
   });
 
+  // Forward opt-in in-game API captures to the backend catalog (deduped
+  // server-side by procedure + input-shape). No credentials are ever included —
+  // the content scripts capture only URL/body/response, never headers.
+  async function handleCaptureCalls(calls) {
+    if (!Array.isArray(calls) || calls.length === 0) return { success: true, captured: 0 };
+    const { BACKEND_URL } = await cfg();
+    const { userId } = await browser.storage.local.get('userId');
+    try {
+      const resp = await fetch(`${BACKEND_URL}/api/telemetry/api-capture`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ user_id: userId ?? null, calls }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      return { success: resp.ok, captured: data.captured ?? 0 };
+    } catch (e) {
+      return { success: false, error: e.message, code: 'UNKNOWN' };
+    }
+  }
+
   // ── Message handler ────────────────────────────────────────────────────────
 
   browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -914,6 +934,11 @@ export default defineBackground(() => {
 
     if (message.type === 'CONSUME_FOOD') {
       handleConsumeFood(message.foodItemCode).then(sendResponse);
+      return true;
+    }
+
+    if (message.type === 'CAPTURE_CALLS') {
+      handleCaptureCalls(message.calls).then(sendResponse);
       return true;
     }
 

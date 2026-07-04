@@ -1,7 +1,7 @@
 import { getConfig } from "@/utils/config";
 import "./style.css";
 
-const FETCH_TIMEOUT = 3_000;
+const FETCH_TIMEOUT = 2_000;
 
 // ── Config (dev vs prod) ──────────────────────────────────────────────────
 
@@ -18,6 +18,7 @@ const identityCard = document.getElementById('identity-card');
 const btnSync      = document.getElementById('btn-sync');
 const btnDashboard = document.getElementById('btn-dashboard');
 const footerServer = document.getElementById('footer-server');
+const telemetryToggle = document.getElementById('telemetry-toggle');
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -90,12 +91,14 @@ function renderFooter(config) {
 // ── Main refresh ──────────────────────────────────────────────────────────
 
 async function refresh() {
-  const [storage, player, config] = await Promise.all([
-    browser.storage.local.get(['userId', 'connected', 'lastSync']),
-    fetchIdentity(),
-    cfg(),
-  ]);
+  // Paint from cached storage immediately so the popup opens instantly and
+  // never blocks on the network. Then update identity + footer once the
+  // background calls resolve (fetchIdentity is time-boxed, so a slow or
+  // unreachable backend can't stall the render).
+  const storage = await browser.storage.local.get(['userId', 'connected', 'lastSync']);
+  renderIdentity(storage, null);
 
+  const [player, config] = await Promise.all([fetchIdentity(), cfg()]);
   renderIdentity(storage, player);
   renderFooter(config);
 }
@@ -124,6 +127,15 @@ btnDashboard.addEventListener('click', async () => {
 const extVersionEl = document.getElementById('ext-version');
 if (extVersionEl) {
   extVersionEl.textContent = `v${browser.runtime.getManifest().version}`;
+}
+
+if (telemetryToggle) {
+  browser.storage.local.get('telemetryEnabled').then(({ telemetryEnabled }) => {
+    telemetryToggle.checked = telemetryEnabled === true;
+  });
+  telemetryToggle.addEventListener('change', () => {
+    browser.storage.local.set({ telemetryEnabled: telemetryToggle.checked });
+  });
 }
 
 refresh();

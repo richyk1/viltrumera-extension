@@ -196,3 +196,30 @@ main {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* ── Telemetry toggle ────────────────────────────────────────────────────── */
+
+.telemetry {
+  padding: 10px 12px 0;
+}
+
+.telemetry-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.telemetry-row input {
+  accent-color: var(--red-bright);
+  cursor: pointer;
+}
+
+.telemetry-note {
+  margin-top: 4px;
+  color: var(--dim);
+  font-size: 10px;
+  line-height: 1.4;
+}
