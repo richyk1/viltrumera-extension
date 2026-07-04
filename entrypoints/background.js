@@ -434,13 +434,25 @@ export default defineBackground(() => {
 
       console.log('[Viltrumera] buy success:', buyResult);
 
+      // itemId is a best-effort convenience for the flip tracker's auto-relist —
+      // it must NEVER stall or fail the buy, which already succeeded above. Bound
+      // this extra round-trip tightly so a slow inventory fetch can't push the
+      // total response past the caller's timeout and cause a false "failed".
       let itemId = null;
       try {
-        const invResp = await fetch(`${API_BASE}/trpc/inventory.getById?batch=1`, {
-          method:  'POST',
-          headers,
-          body:    JSON.stringify({ '0': {} }),
-        });
+        const ctrl = new AbortController();
+        const invTimeout = setTimeout(() => ctrl.abort(), 3000);
+        let invResp;
+        try {
+          invResp = await fetch(`${API_BASE}/trpc/inventory.getById?batch=1`, {
+            method:  'POST',
+            headers,
+            body:    JSON.stringify({ '0': {} }),
+            signal:  ctrl.signal,
+          });
+        } finally {
+          clearTimeout(invTimeout);
+        }
         const invData = await invResp.json();
         const inv     = Array.isArray(invData) ? invData[0]?.result?.data : invData?.result?.data;
         const items   = inv?.items;
@@ -453,7 +465,7 @@ export default defineBackground(() => {
           }
         }
       } catch (err) {
-        console.warn('[Viltrumera] inventory fetch failed:', err.message);
+        console.warn('[Viltrumera] inventory fetch failed/timed out:', err.message);
       }
 
       return { success: true, data: buyResult, itemId };
