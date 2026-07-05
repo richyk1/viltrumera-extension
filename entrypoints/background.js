@@ -852,9 +852,11 @@ export default defineBackground(() => {
     await syncFromCookie();
   });
 
-  // Forward opt-in in-game API captures to the backend catalog (deduped
-  // server-side by procedure + input-shape). No credentials are ever included —
-  // the content scripts capture only URL/body/response, never headers.
+  // Forward opt-in in-game API captures to the backend (raw append-only
+  // per-request log plus a derived per-procedure catalog). No credentials are
+  // ever included — the content scripts strip auth headers in-page before
+  // emitting; every other header plus status/timing is now included. Calls are
+  // forwarded verbatim.
   async function handleCaptureCalls(calls) {
     if (!Array.isArray(calls) || calls.length === 0) return { success: true, captured: 0 };
     const { BACKEND_URL } = await cfg();
