@@ -727,52 +727,165 @@ export default defineBackground(() => {
     }
 
     try {
-      const [daily, weekly] = await Promise.all([fetchPeriod('daily'), fetchPeriod('weekly')]);
-      return { success: true, daily, weekly };
+      const [daily, weekly, starting] = await Promise.all([
+        fetchPeriod('daily'), fetchPeriod('weekly'), fetchPeriod('starting'),
+      ]);
+      return { success: true, daily, weekly, starting };
     } catch (e) {
       return { success: false, error: e.message, code: e.code ?? 'UNKNOWN' };
     }
   }
 
-  // ── CONSUME_FOOD handler ──────────────────────────────────────────────────
-  async function handleConsumeFood(foodItemCode) {
+  // ── REROLL_MISSION handler ────────────────────────────────────────────────
+  async function handleRerollMission(missionId) {
+    if (!OFFER_ID_RE.test(missionId)) {
+      return { success: false, error: 'Invalid mission ID', code: 'UNKNOWN' };
+    }
     const game = await buildGameHeaders();
     if (!game) {
       return { success: false, error: 'Log into app.warera.io first', code: 'NO_COOKIES' };
     }
     const { headers } = game;
-    // Eat the named food from inventory via `user.consumeFood { itemCode }`
-    // (itemCode ∈ 'bread' | 'steak' | 'cookedFish' — verified live). This
-    // advances the specific eat mission. If no food code is supplied, fall back
-    // to buying + eating the cheapest food.
-    const procedure = foodItemCode ? 'user.consumeFood' : 'user.buyCheapestFoodAndConsume';
-    const input = foodItemCode ? { itemCode: foodItemCode } : {};
     try {
       let resp;
       try {
-        resp = await fetch(`${API4_BASE}/trpc/${procedure}?batch=1`, {
-          method: 'POST', headers, body: JSON.stringify({ '0': input }),
+        resp = await fetch(`${API4_BASE}/trpc/mission.rerollMission?batch=1`, {
+          method: 'POST', headers, body: JSON.stringify({ '0': { missionId } }),
         });
       } catch (e) {
-        return { success: false, error: `Could not reach the game server to eat food: ${e.message}`, code: 'NETWORK' };
+        return { success: false, error: `Could not reach the game server to reroll: ${e.message}`, code: 'NETWORK' };
       }
       if (!resp.ok) {
-        return { success: false, error: `Game server returned HTTP ${resp.status} when eating food`, code: 'API_ERROR' };
+        return { success: false, error: `Game server returned HTTP ${resp.status} when rerolling`, code: 'API_ERROR' };
       }
       let data;
-      try {
-        data = await resp.json();
-      } catch {
-        return { success: false, error: 'Game server sent a non-JSON response when eating food (are you logged in?)', code: 'API_ERROR' };
+      try { data = await resp.json(); } catch {
+        return { success: false, error: 'Game server sent a non-JSON response when rerolling', code: 'API_ERROR' };
       }
       const err = Array.isArray(data) ? data[0]?.error : data?.error;
       if (err) {
-        return { success: false, error: `Eating food failed: ${err?.json?.message ?? err?.message ?? 'unknown game API error'}`, code: 'API_ERROR' };
+        return { success: false, error: `Reroll failed: ${err?.json?.message ?? err?.message ?? 'unknown game API error'}`, code: 'API_ERROR' };
       }
       return { success: true };
     } catch (e) {
-      return { success: false, error: `Eating food failed unexpectedly: ${e.message}`, code: 'UNKNOWN' };
+      return { success: false, error: `Reroll failed unexpectedly: ${e.message}`, code: 'UNKNOWN' };
     }
+  }
+
+  // ── CLAIM_MISSIONS handler ────────────────────────────────────────────────
+  async function handleClaimMissions(timeType) {
+    const game = await buildGameHeaders();
+    if (!game) {
+      return { success: false, error: 'Log into app.warera.io first', code: 'NO_COOKIES' };
+    }
+    const { headers } = game;
+    try {
+      let resp;
+      try {
+        resp = await fetch(`${API4_BASE}/trpc/mission.claimFinishedMissionsReward?batch=1`, {
+          method: 'POST', headers, body: JSON.stringify({ '0': { timeType } }),
+        });
+      } catch (e) {
+        return { success: false, error: `Could not reach the game server to claim: ${e.message}`, code: 'NETWORK' };
+      }
+      if (!resp.ok) {
+        return { success: false, error: `Game server returned HTTP ${resp.status} when claiming`, code: 'API_ERROR' };
+      }
+      let data;
+      try { data = await resp.json(); } catch {
+        return { success: false, error: 'Game server sent a non-JSON response when claiming', code: 'API_ERROR' };
+      }
+      const err = Array.isArray(data) ? data[0]?.error : data?.error;
+      if (err) {
+        return { success: false, error: `Claim failed: ${err?.json?.message ?? err?.message ?? 'unknown game API error'}`, code: 'API_ERROR' };
+      }
+      const reward = (Array.isArray(data) ? data[0]?.result?.data : data?.result?.data) ?? {};
+      return { success: true, reward: { xp: reward.xp ?? 0, money: reward.money ?? 0, cases: reward.cases ?? 0 } };
+    } catch (e) {
+      return { success: false, error: `Claim failed unexpectedly: ${e.message}`, code: 'UNKNOWN' };
+    }
+  }
+
+  // ── Shared mission-action POST → { ok, status, data, error, code, detail } ──
+  // `detail` is a truncated raw response body: the ACTUAL game failure, for debug.
+  async function missionActionPost(procedure, input) {
+    const game = await buildGameHeaders();
+    if (!game) return { ok: false, error: 'Log into app.warera.io first', code: 'NO_COOKIES' };
+    let resp;
+    try {
+      resp = await fetch(`${API4_BASE}/trpc/${procedure}?batch=1`, {
+        method: 'POST', headers: game.headers, body: JSON.stringify({ '0': input }),
+      });
+    } catch (e) {
+      return { ok: false, error: `Could not reach the game server (${procedure}): ${e.message}`, code: 'NETWORK' };
+    }
+    const status = resp.status;
+    let text = '';
+    try { text = await resp.text(); } catch { /* body may be empty */ }
+    const detail = text.length > 800 ? text.slice(0, 800) : text;
+    if (!resp.ok) return { ok: false, status, detail, error: `HTTP ${status} from ${procedure}`, code: 'API_ERROR' };
+    let data;
+    try { data = JSON.parse(text); } catch {
+      return { ok: false, status, detail, error: `Non-JSON response from ${procedure} (are you logged in?)`, code: 'API_ERROR' };
+    }
+    const err = Array.isArray(data) ? data[0]?.error : data?.error;
+    if (err) return { ok: false, status, detail, error: err?.json?.message ?? err?.message ?? `Game API error (${procedure})`, code: 'API_ERROR' };
+    const result = (Array.isArray(data) ? data[0]?.result?.data : data?.result?.data) ?? null;
+    return { ok: true, status, data: result };
+  }
+
+  // ── CRAFT_ITEM handler ────────────────────────────────────────────────────
+  async function handleCraftItem(rarity) {
+    const r = await missionActionPost('inventory.craftItem', { rarity });
+    return r.ok ? { success: true, item: r.data } : { success: false, error: r.error, code: r.code, status: r.status, detail: r.detail };
+  }
+
+  // ── OPEN_CASE handler ─────────────────────────────────────────────────────
+  async function handleOpenCase(caseCode) {
+    const r = await missionActionPost('inventory.openCase', { caseCode });
+    return r.ok ? { success: true, item: r.data } : { success: false, error: r.error, code: r.code, status: r.status, detail: r.detail };
+  }
+
+  // ── CONSUME_FOOD handler ──────────────────────────────────────────────────
+  // Eat the named food via `user.consumeFood { itemCode }`, or buy+eat the
+  // cheapest when no code is given.
+  async function handleConsumeFood(foodItemCode) {
+    const procedure = foodItemCode ? 'user.consumeFood' : 'user.buyCheapestFoodAndConsume';
+    const input = foodItemCode ? { itemCode: foodItemCode } : {};
+    const r = await missionActionPost(procedure, input);
+    return r.ok ? { success: true } : { success: false, error: r.error, code: r.code, status: r.status, detail: r.detail };
+  }
+
+  // ── Read helpers for targeted-mission context ─────────────────────────────
+  async function handleFetchMe() {
+    const r = await missionActionPost('user.getMe', {});
+    return r.ok ? { success: true, me: r.data } : { success: false, error: r.error, code: r.code };
+  }
+  async function handleFetchCompanies() {
+    const r = await missionActionPost('company.getManageableCompanies', {});
+    return r.ok ? { success: true, companies: r.data ?? [] } : { success: false, error: r.error, code: r.code };
+  }
+  async function handleFetchMuHelp(muId) {
+    const r = await missionActionPost('muHelp.getManyPaginated', { muId, direction: 'forward', limit: 20 });
+    return r.ok ? { success: true, items: r.data?.items ?? [] } : { success: false, error: r.error, code: r.code };
+  }
+
+  // ── Targeted mission actions ──────────────────────────────────────────────
+  async function handleProduce(companyId) {
+    const r = await missionActionPost('company.produce', { companyId });
+    return r.ok ? { success: true } : { success: false, error: r.error, code: r.code, status: r.status, detail: r.detail };
+  }
+  async function handleWork(companyId) {
+    const r = await missionActionPost('company.work', { companyId });
+    return r.ok ? { success: true } : { success: false, error: r.error, code: r.code, status: r.status, detail: r.detail };
+  }
+  async function handleDonate(money, muId) {
+    const r = await missionActionPost('inventory.donate', { money, muId });
+    return r.ok ? { success: true } : { success: false, error: r.error, code: r.code, status: r.status, detail: r.detail };
+  }
+  async function handleMuHelp(muHelpId) {
+    const r = await missionActionPost('muHelp.help', { muHelpId });
+    return r.ok ? { success: true } : { success: false, error: r.error, code: r.code, status: r.status, detail: r.detail };
   }
 
   // ── Identity sync to backend (username only — JWT is never sent) ──────────
@@ -936,6 +1049,61 @@ export default defineBackground(() => {
 
     if (message.type === 'CONSUME_FOOD') {
       handleConsumeFood(message.foodItemCode).then(sendResponse);
+      return true;
+    }
+
+    if (message.type === 'REROLL_MISSION') {
+      handleRerollMission(message.missionId).then(sendResponse);
+      return true;
+    }
+
+    if (message.type === 'CLAIM_MISSIONS') {
+      handleClaimMissions(message.timeType).then(sendResponse);
+      return true;
+    }
+
+    if (message.type === 'CRAFT_ITEM') {
+      handleCraftItem(message.rarity).then(sendResponse);
+      return true;
+    }
+
+    if (message.type === 'OPEN_CASE') {
+      handleOpenCase(message.caseCode).then(sendResponse);
+      return true;
+    }
+
+    if (message.type === 'FETCH_ME') {
+      handleFetchMe().then(sendResponse);
+      return true;
+    }
+
+    if (message.type === 'FETCH_COMPANIES') {
+      handleFetchCompanies().then(sendResponse);
+      return true;
+    }
+
+    if (message.type === 'FETCH_MU_HELP') {
+      handleFetchMuHelp(message.muId).then(sendResponse);
+      return true;
+    }
+
+    if (message.type === 'PRODUCE') {
+      handleProduce(message.companyId).then(sendResponse);
+      return true;
+    }
+
+    if (message.type === 'WORK') {
+      handleWork(message.companyId).then(sendResponse);
+      return true;
+    }
+
+    if (message.type === 'DONATE') {
+      handleDonate(message.money, message.muId).then(sendResponse);
+      return true;
+    }
+
+    if (message.type === 'MU_HELP') {
+      handleMuHelp(message.muHelpId).then(sendResponse);
       return true;
     }
 
