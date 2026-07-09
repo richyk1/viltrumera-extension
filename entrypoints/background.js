@@ -927,6 +927,16 @@ export default defineBackground(() => {
     return { success: true, attacker: d.attacker ?? null, defender: d.defender ?? null };
   }
 
+  // ── Battle: active-battle feed (grouped by relation) + single battle ──────
+  async function handleGroupedBattles() {
+    const r = await missionActionPost('battle.getGroupedActiveBattles', {});
+    return r.ok ? { success: true, groups: r.data ?? {} } : { success: false, error: r.error, code: r.code };
+  }
+  async function handleFetchBattle(battleId) {
+    const r = await missionActionPost('battle.getById', { battleId });
+    return r.ok ? { success: true, battle: r.data ?? null } : { success: false, error: r.error, code: r.code };
+  }
+
   // ── Identity sync to backend (username only — JWT is never sent) ──────────
 
   const RETRY_DELAYS_MS = [2_000, 5_000, 15_000];
@@ -1173,6 +1183,16 @@ export default defineBackground(() => {
 
     if (message.type === 'DAMAGE_BONUSES') {
       handleDamageBonuses(message.battleId).then(sendResponse);
+      return true;
+    }
+
+    if (message.type === 'FETCH_GROUPED_BATTLES') {
+      handleGroupedBattles().then(sendResponse);
+      return true;
+    }
+
+    if (message.type === 'FETCH_BATTLE') {
+      handleFetchBattle(message.battleId).then(sendResponse);
       return true;
     }
 
