@@ -913,6 +913,12 @@ export default defineBackground(() => {
     return r.ok ? { success: true } : { success: false, error: r.error, code: r.code, status: r.status, detail: r.detail };
   }
 
+  // ── Shop: claim the daily reward ──────────────────────────────────────────
+  async function handleClaimDaily() {
+    const r = await missionActionPost('user.claimDailyReward', {});
+    return r.ok ? { success: true, reward: r.data ?? {} } : { success: false, error: r.error, code: r.code, status: r.status, detail: r.detail };
+  }
+
   // ── Identity sync to backend (username only — JWT is never sent) ──────────
 
   const RETRY_DELAYS_MS = [2_000, 5_000, 15_000];
@@ -1149,6 +1155,11 @@ export default defineBackground(() => {
 
     if (message.type === 'HIT') {
       handleHit(message.roundId, message.side).then(sendResponse);
+      return true;
+    }
+
+    if (message.type === 'CLAIM_DAILY') {
+      handleClaimDaily().then(sendResponse);
       return true;
     }
 
