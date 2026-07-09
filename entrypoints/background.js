@@ -919,6 +919,14 @@ export default defineBackground(() => {
     return r.ok ? { success: true, reward: r.data ?? {} } : { success: false, error: r.error, code: r.code, status: r.status, detail: r.detail };
   }
 
+  // ── Battle: per-side damage bonuses (to pick the highest-bonus battle) ─────
+  async function handleDamageBonuses(battleId) {
+    const r = await missionActionPost('battle.getDamageBonuses', { battleId });
+    if (!r.ok) return { success: false, error: r.error, code: r.code };
+    const d = r.data ?? {};
+    return { success: true, attacker: d.attacker ?? null, defender: d.defender ?? null };
+  }
+
   // ── Identity sync to backend (username only — JWT is never sent) ──────────
 
   const RETRY_DELAYS_MS = [2_000, 5_000, 15_000];
@@ -1160,6 +1168,11 @@ export default defineBackground(() => {
 
     if (message.type === 'CLAIM_DAILY') {
       handleClaimDaily().then(sendResponse);
+      return true;
+    }
+
+    if (message.type === 'DAMAGE_BONUSES') {
+      handleDamageBonuses(message.battleId).then(sendResponse);
       return true;
     }
 
