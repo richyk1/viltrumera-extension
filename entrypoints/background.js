@@ -902,12 +902,7 @@ export default defineBackground(() => {
     return r.ok ? { success: true } : { success: false, error: r.error, code: r.code, status: r.status, detail: r.detail };
   }
 
-  // ── Battle: active battles for a country + land one hit ───────────────────
-  async function handleFetchBattles(countryId) {
-    const r = await missionActionPost('battle.getBattles', { countryId, direction: 'forward', limit: 20 });
-    if (!r.ok) return { success: false, error: r.error, code: r.code };
-    return { success: true, battles: r.data?.items ?? [] };
-  }
+  // ── Battle: land one hit ──────────────────────────────────────────────────
   async function handleHit(roundId, side) {
     const r = await missionActionPost('roundDamages.hit', { roundId, side });
     return r.ok ? { success: true } : { success: false, error: r.error, code: r.code, status: r.status, detail: r.detail };
@@ -1163,11 +1158,6 @@ export default defineBackground(() => {
 
     if (message.type === 'CREATE_ORDER') {
       handleCreateOrder(message.order).then(sendResponse);
-      return true;
-    }
-
-    if (message.type === 'FETCH_BATTLES') {
-      handleFetchBattles(message.countryId).then(sendResponse);
       return true;
     }
 
