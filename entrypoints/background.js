@@ -888,6 +888,31 @@ export default defineBackground(() => {
     return r.ok ? { success: true } : { success: false, error: r.error, code: r.code, status: r.status, detail: r.detail };
   }
 
+  // ── Market: order book read + create order (buy/sell) ─────────────────────
+  async function handleTopOrders(itemCode) {
+    const r = await missionActionPost('tradingOrder.getTopOrders', { itemCode });
+    if (!r.ok) return { success: false, error: r.error, code: r.code };
+    const d = r.data ?? {};
+    return { success: true, buyOrders: d.buyOrders ?? [], sellOrders: d.sellOrders ?? [] };
+  }
+  async function handleCreateOrder(order) {
+    const r = await missionActionPost('tradingOrder.createOrder', {
+      itemCode: order.itemCode, price: order.price, quantity: order.quantity, type: order.type, userId: order.userId,
+    });
+    return r.ok ? { success: true } : { success: false, error: r.error, code: r.code, status: r.status, detail: r.detail };
+  }
+
+  // ── Battle: active battles for a country + land one hit ───────────────────
+  async function handleFetchBattles(countryId) {
+    const r = await missionActionPost('battle.getBattles', { countryId, direction: 'forward', limit: 20 });
+    if (!r.ok) return { success: false, error: r.error, code: r.code };
+    return { success: true, battles: r.data?.items ?? [] };
+  }
+  async function handleHit(roundId, side) {
+    const r = await missionActionPost('roundDamages.hit', { roundId, side });
+    return r.ok ? { success: true } : { success: false, error: r.error, code: r.code, status: r.status, detail: r.detail };
+  }
+
   // ── Identity sync to backend (username only — JWT is never sent) ──────────
 
   const RETRY_DELAYS_MS = [2_000, 5_000, 15_000];
@@ -1104,6 +1129,26 @@ export default defineBackground(() => {
 
     if (message.type === 'MU_HELP') {
       handleMuHelp(message.muHelpId).then(sendResponse);
+      return true;
+    }
+
+    if (message.type === 'TOP_ORDERS') {
+      handleTopOrders(message.itemCode).then(sendResponse);
+      return true;
+    }
+
+    if (message.type === 'CREATE_ORDER') {
+      handleCreateOrder(message.order).then(sendResponse);
+      return true;
+    }
+
+    if (message.type === 'FETCH_BATTLES') {
+      handleFetchBattles(message.countryId).then(sendResponse);
+      return true;
+    }
+
+    if (message.type === 'HIT') {
+      handleHit(message.roundId, message.side).then(sendResponse);
       return true;
     }
 
