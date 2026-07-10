@@ -847,10 +847,10 @@ export default defineBackground(() => {
   }
 
   // ── CONSUME_FOOD handler ──────────────────────────────────────────────────
-  // Eat the named food via `user.consumeFood { itemCode }`, or buy+eat the
-  // cheapest when no code is given.
-  async function handleConsumeFood(foodItemCode) {
-    const procedure = foodItemCode ? 'user.consumeFood' : 'user.buyCheapestFoodAndConsume';
+  // Eat the named food via `user.consumeFood { itemCode }`, or (buy=true) buy the
+  // cheapest via `user.buyCheapestFoodAndConsume`, targeting `itemCode` when given.
+  async function handleConsumeFood(foodItemCode, buy) {
+    const procedure = buy ? 'user.buyCheapestFoodAndConsume' : 'user.consumeFood';
     const input = foodItemCode ? { itemCode: foodItemCode } : {};
     const r = await missionActionPost(procedure, input);
     return r.ok ? { success: true } : { success: false, error: r.error, code: r.code, status: r.status, detail: r.detail };
@@ -1108,7 +1108,7 @@ export default defineBackground(() => {
     }
 
     if (message.type === 'CONSUME_FOOD') {
-      handleConsumeFood(message.foodItemCode).then(sendResponse);
+      handleConsumeFood(message.foodItemCode, message.buy).then(sendResponse);
       return true;
     }
 
