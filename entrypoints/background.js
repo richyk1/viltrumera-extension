@@ -911,7 +911,12 @@ export default defineBackground(() => {
   // ── Shop: claim the daily reward ──────────────────────────────────────────
   async function handleClaimDaily() {
     const r = await missionActionPost('user.claimDailyReward', {});
-    return r.ok ? { success: true, reward: r.data ?? {} } : { success: false, error: r.error, code: r.code, status: r.status, detail: r.detail };
+    if (r.ok) return { success: true, reward: r.data ?? {} };
+    // A 400 means the game rejected the claim itself — for the daily reward that's
+    // "already claimed today" (the observed response). Auth (401/403), server (5xx),
+    // network and no-cookies failures keep their original code so real problems surface.
+    const rejected = r.code === 'API_ERROR' && r.status === 400;
+    return { success: false, error: r.error, code: rejected ? 'ALREADY_CLAIMED' : r.code, status: r.status, detail: r.detail };
   }
 
   // ── Battle: per-side damage bonuses (to pick the highest-bonus battle) ─────
@@ -930,6 +935,17 @@ export default defineBackground(() => {
   async function handleFetchBattle(battleId) {
     const r = await missionActionPost('battle.getById', { battleId });
     return r.ok ? { success: true, battle: r.data ?? null } : { success: false, error: r.error, code: r.code };
+  }
+
+  // ── News: list articles + read one (opening registers the read) ───────────
+  async function handleFetchArticles() {
+    const r = await missionActionPost('article.getArticlesPaginated', { direction: 'forward', limit: 5, sortType: 'newest' });
+    if (!r.ok) return { success: false, error: r.error, code: r.code };
+    return { success: true, articles: r.data?.items ?? [] };
+  }
+  async function handleReadArticle(articleId) {
+    const r = await missionActionPost('article.getArticleById', { articleId });
+    return r.ok ? { success: true } : { success: false, error: r.error, code: r.code, status: r.status, detail: r.detail };
   }
 
   // ── Identity sync to backend (username only — JWT is never sent) ──────────
@@ -1183,6 +1199,16 @@ export default defineBackground(() => {
 
     if (message.type === 'FETCH_BATTLE') {
       handleFetchBattle(message.battleId).then(sendResponse);
+      return true;
+    }
+
+    if (message.type === 'FETCH_ARTICLES') {
+      handleFetchArticles().then(sendResponse);
+      return true;
+    }
+
+    if (message.type === 'READ_ARTICLE') {
+      handleReadArticle(message.articleId).then(sendResponse);
       return true;
     }
 
