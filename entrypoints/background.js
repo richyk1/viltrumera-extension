@@ -939,11 +939,10 @@ export default defineBackground(() => {
 
   // ── News: list articles + read one (opening registers the read) ───────────
   async function handleFetchArticles() {
-    const jwt = await getCookie('jwt');
-    const userId = jwt ? (decodeJwtPayload(jwt)?.data?._id ?? null) : null;
-    // Shape mirrors the game's News feed call exactly: type 'last' (newest first)
-    // + the viewer's userId; sortType/omitting userId returns HTTP 400.
-    const r = await missionActionPost('article.getArticlesPaginated', { direction: 'forward', limit: 12, type: 'last', userId });
+    // Use the GLOBAL browsable feed (positiveScoreOnly + type 'last', no userId) —
+    // the userId-scoped feed is a tiny personalized set that's usually all-read, so
+    // it wrongly reports "no unread". This is the shape the in-game News list uses.
+    const r = await missionActionPost('article.getArticlesPaginated', { direction: 'forward', limit: 30, positiveScoreOnly: true, type: 'last' });
     if (!r.ok) return { success: false, error: r.error, code: r.code };
     const items = r.data?.items ?? [];
     // The read mission only counts a NEW article, so keep only the ones the viewer
