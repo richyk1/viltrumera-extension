@@ -943,9 +943,20 @@ export default defineBackground(() => {
     const userId = jwt ? (decodeJwtPayload(jwt)?.data?._id ?? null) : null;
     // Shape mirrors the game's News feed call exactly: type 'last' (newest first)
     // + the viewer's userId; sortType/omitting userId returns HTTP 400.
-    const r = await missionActionPost('article.getArticlesPaginated', { direction: 'forward', limit: 5, type: 'last', userId });
+    const r = await missionActionPost('article.getArticlesPaginated', { direction: 'forward', limit: 12, type: 'last', userId });
     if (!r.ok) return { success: false, error: r.error, code: r.code };
-    return { success: true, articles: r.data?.items ?? [] };
+    const items = r.data?.items ?? [];
+    // The read mission only counts a NEW article, so keep only the ones the viewer
+    // hasn't viewed yet (articleInteraction.getMyInteractions.hasViewed). Stop once
+    // we have a few — no need to probe every article.
+    const unread = [];
+    for (const a of items) {
+      const ir = await missionActionPost('articleInteraction.getMyInteractions', { articleId: a._id });
+      const hasViewed = ir.ok ? (ir.data?.hasViewed ?? false) : false;
+      if (!hasViewed) unread.push({ _id: a._id, title: a.title, category: a.category });
+      if (unread.length >= 5) break;
+    }
+    return { success: true, articles: unread };
   }
   async function handleReadArticle(articleId) {
     const r = await missionActionPost('article.getArticleById', { articleId });
