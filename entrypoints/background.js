@@ -939,7 +939,11 @@ export default defineBackground(() => {
 
   // ── News: list articles + read one (opening registers the read) ───────────
   async function handleFetchArticles() {
-    const r = await missionActionPost('article.getArticlesPaginated', { direction: 'forward', limit: 5, sortType: 'newest' });
+    const jwt = await getCookie('jwt');
+    const userId = jwt ? (decodeJwtPayload(jwt)?.data?._id ?? null) : null;
+    // Shape mirrors the game's News feed call exactly: type 'last' (newest first)
+    // + the viewer's userId; sortType/omitting userId returns HTTP 400.
+    const r = await missionActionPost('article.getArticlesPaginated', { direction: 'forward', limit: 5, type: 'last', userId });
     if (!r.ok) return { success: false, error: r.error, code: r.code };
     return { success: true, articles: r.data?.items ?? [] };
   }
