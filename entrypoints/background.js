@@ -905,7 +905,7 @@ export default defineBackground(() => {
   // ── Battle: land one hit ──────────────────────────────────────────────────
   async function handleHit(roundId, side) {
     const r = await missionActionPost('roundDamages.hit', { roundId, side });
-    return r.ok ? { success: true, data: { damages: r.data?.damages, isCriticalHit: r.data?.isCriticalHit, missed: r.data?.missed, dodged: r.data?.dodged, isOnOrder: r.data?.isOnOrder, healthConsumed: r.data?.healthConsumed, updatedAmmoCount: r.data?.updatedAmmoCount, userRoundDamages: r.data?.userRoundDamages } } : { success: false, error: r.error, code: r.code, status: r.status, detail: r.detail };
+    return r.ok ? { success: true, data: { damages: r.data?.damages, isCriticalHit: r.data?.isCriticalHit, missed: r.data?.missed, dodged: r.data?.dodged, isOnOrder: r.data?.isOnOrder, isFirstHitInBattle: r.data?.isFirstHitInBattle, healthConsumed: r.data?.healthConsumed, updatedAmmoCount: r.data?.updatedAmmoCount, userRoundDamages: r.data?.userRoundDamages } } : { success: false, error: r.error, code: r.code, status: r.status, detail: r.detail };
   }
 
   // ── Shop: claim the daily reward ──────────────────────────────────────────
