@@ -736,6 +736,14 @@ export default defineBackground(() => {
     }
   }
 
+  // ── FETCH_MISSIONS_RESUMEE handler ────────────────────────────────────────
+  // Per-bucket { completed, total, claimedFinishedMissions } — the authoritative
+  // "has the bucket's finished-missions reward been redeemed?" state.
+  async function handleMissionsResumee() {
+    const r = await missionActionPost('mission.getMissionsResumee', {});
+    return r.ok ? { success: true, resumee: r.data ?? {} } : { success: false, error: r.error, code: r.code };
+  }
+
   // ── REROLL_MISSION handler ────────────────────────────────────────────────
   async function handleRerollMission(missionId) {
     if (!OFFER_ID_RE.test(missionId)) {
@@ -1118,6 +1126,11 @@ export default defineBackground(() => {
 
     if (message.type === 'FETCH_MISSIONS') {
       handleFetchMissions().then(sendResponse);
+      return true;
+    }
+
+    if (message.type === 'FETCH_MISSIONS_RESUMEE') {
+      handleMissionsResumee().then(sendResponse);
       return true;
     }
 
