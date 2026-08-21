@@ -38,12 +38,18 @@ function fmtTime(ms) {
 
 // ── Fetch helpers ─────────────────────────────────────────────────────────
 
-async function fetchIdentity() {
+async function fetchIdentity(userId) {
   try {
     const { BACKEND_URL } = await cfg();
-    const resp = await fetch(`${BACKEND_URL}/api/auth/identity`, {
-      signal: AbortSignal.timeout(FETCH_TIMEOUT),
-    });
+    // Scope to THIS browser's account. The unscoped endpoint returns the
+    // backend's process-wide identity, which is whoever synced most recently,
+    // not necessarily us. Without a local userId yet, skip rather than show a
+    // stranger.
+    if (!userId) return null;
+    const resp = await fetch(
+      `${BACKEND_URL}/api/auth/identity?user_id=${encodeURIComponent(userId)}`,
+      { signal: AbortSignal.timeout(FETCH_TIMEOUT) },
+    );
     if (!resp.ok) return null;
     const data = await resp.json();
     return data.player ?? null;
@@ -98,7 +104,7 @@ async function refresh() {
   const storage = await browser.storage.local.get(['userId', 'connected', 'lastSync']);
   renderIdentity(storage, null);
 
-  const [player, config] = await Promise.all([fetchIdentity(), cfg()]);
+  const [player, config] = await Promise.all([fetchIdentity(storage.userId), cfg()]);
   renderIdentity(storage, player);
   renderFooter(config);
 }
